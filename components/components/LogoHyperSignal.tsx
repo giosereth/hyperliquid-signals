@@ -1,15 +1,10 @@
 "use client";
 import * as React from "react";
 
-type Props = {
-  /** Pixel size of the square logo mark */
-  size?: number;
-  /** Extra classes for the outer <svg> */
-  className?: string;
-};
+type Props = { size?: number; className?: string };
 
 export default function LogoHyperSignal({ size = 28, className }: Props) {
-  const id = React.useId(); // avoid gradient/filter id collisions
+  const id = React.useId();
   const gid = `grad-${id}`;
   const fid = `glow-${id}`;
 
@@ -18,8 +13,8 @@ export default function LogoHyperSignal({ size = 28, className }: Props) {
       width={size}
       height={size}
       viewBox="0 0 64 64"
-      aria-label="Hyper Signal logo"
       role="img"
+      aria-label="Hyper Signal logo"
       className={className}
     >
       <defs>
@@ -36,7 +31,7 @@ export default function LogoHyperSignal({ size = 28, className }: Props) {
         </filter>
       </defs>
 
-      {/* Rounded square */}
+      {/* Rounded gradient square */}
       <rect
         x="2"
         y="2"
@@ -48,12 +43,8 @@ export default function LogoHyperSignal({ size = 28, className }: Props) {
         strokeWidth="1.25"
       />
 
-      {/* Subtle grid notch (premium touch) */}
-      <path
-        d="M10 46 H54 M10 34 H54"
-        stroke="rgba(255,255,255,0.08)"
-        strokeWidth="1"
-      />
+      {/* Subtle grid lines */}
+      <path d="M10 46 H54 M10 34 H54" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
 
       {/* Sparkline */}
       <path
@@ -67,17 +58,14 @@ export default function LogoHyperSignal({ size = 28, className }: Props) {
       />
 
       {/* Minimal candlesticks */}
-      {/* Bull */}
       <line x1="24" x2="24" y1="22" y2="42" stroke="white" strokeOpacity="0.7" />
       <rect x="21" y="28" width="6" height="10" rx="1.5" fill="white" opacity="0.8" />
-      {/* Bear */}
       <line x1="44" x2="44" y1="18" y2="40" stroke="white" strokeOpacity="0.45" />
       <rect x="41" y="24" width="6" height="8" rx="1.5" fill="white" opacity="0.55" />
     </svg>
   );
 }
 
-/** Wordmark helper to show the logo + text inline */
 export function HyperSignalWordmark({
   size = 28,
   text = "Hyper Signal",

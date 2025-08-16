@@ -1,9 +1,20 @@
 // components/Hyperliquid.tsx
 "use client";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { HyperSignalWordmark } from "@/components/components/LogoHyperSignal";
+
+async function hl<T>(payload: any): Promise<T> {
+  const res = await fetch("/api/hl", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(`HL ${payload?.type ?? "?"} failed: ${res.status}`);
+  return res.json() as Promise<T>;
+}
 
 /**
- * Hyperliquid Social Signals — React Frontend (Landing + App, Mock Data)
+ * Hyper Signal — React Frontend (Landing + App, Mock Data)
  * - Home (landing) with CTAs
  * - Leaderboard, Trader Profile slide-over, Alerts, About
  * - Premium but simple dark UI, mock data + SVG charts
@@ -44,24 +55,17 @@ function makeTrader(idx:number, rand:()=>number): Trader {
   const marketFocus: Market = (["ETH","BTC","ALTS"] as Market[])[Math.floor(rand()*3)];
   const positions: Position[] = Array.from({ length: Math.floor(rand()*3) }, () => {
     const syms = ["ETH","BTC","SOL","DOGE","ARB","OP"]; const symbol = syms[Math.floor(rand()*syms.length)];
-    const side = rand()>0.5 ? "LONG" : "SHORT"; const sizeUsd = Math.floor(10_000 + rand()*150_000);
-    const entry = +(100 + rand()*4000).toFixed(2); const liq = +(entry*(0.4+rand()*0.4)).toFixed(2);
-    const unrealizedPnlUsd = Math.floor((rand()-0.4)*10_000);
+    const side = Math.random()>0.5 ? "LONG" : "SHORT"; const sizeUsd = Math.floor(10_000 + Math.random()*150_000);
+    const entry = +(100 + Math.random()*4000).toFixed(2); const liq = +(entry*(0.4+Math.random()*0.4)).toFixed(2);
+    const unrealizedPnlUsd = Math.floor((Math.random()-0.4)*10_000);
     return { symbol, side, sizeUsd, entry, liq, unrealizedPnlUsd };
   });
-  const history: Trade[] = Array.from({ length: 12 }, () => ({ ts: Date.now() - Math.floor(rand()*1000*60*60*72), symbol: ["ETH","BTC","SOL"][Math.floor(rand()*3)], side: rand()>0.5?"BUY":"SELL", sizeUsd: Math.floor(1_000+rand()*80_000), price: +(100+rand()*4000).toFixed(2), pnlUsd: Math.floor((rand()-0.4)*8000) }));
+  const history: Trade[] = Array.from({ length: 12 }, () => ({ ts: Date.now() - Math.floor(Math.random()*1000*60*60*72), symbol: ["ETH","BTC","SOL"][Math.floor(Math.random()*3)], side: Math.random()>0.5?"BUY":"SELL", sizeUsd: Math.floor(1_000+Math.random()*80_000), price: +(100+Math.random()*4000).toFixed(2), pnlUsd: Math.floor((Math.random()-0.4)*8000) }));
   const signals: Signal[] = history.slice(0,6).map((t,i)=>({ id:`${addr}-${i}`, ts:t.ts, event:(i%3===0?"FLIP":i%2===0?"CLOSE":"OPEN"), symbol:t.symbol, side:t.side==="BUY"?"LONG":"SHORT", sizeUsd:t.sizeUsd, price:t.price }));
-  return {
-    address: addr,
-    handle: rand()>0.6 ? `alpha_${idx+1}` : undefined,
-    marketFocus,
-    stats: { pnlPct, pnlUsd, winRate: 0.4+rand()*0.5, sharpe:+(0.2+rand()*2).toFixed(2), trades: Math.floor(50+rand()*1200), volume24h: Math.floor(50_000+rand()*3_500_000), maxDdPct: +(rand()*45).toFixed(2), avgTradeUsd: Math.floor(500+rand()*15000) },
-    spark, positions, history, signals
-  };
+  return { address: addr, handle: Math.random()>0.6 ? `alpha_${idx+1}` : undefined, marketFocus, stats: { pnlPct, pnlUsd, winRate: 0.4+Math.random()*0.5, sharpe:+(0.2+Math.random()*2).toFixed(2), trades: Math.floor(50+Math.random()*1200), volume24h: Math.floor(50_000+Math.random()*3_500_000), maxDdPct: +(Math.random()*45).toFixed(2), avgTradeUsd: Math.floor(500+Math.random()*15000) }, spark, positions, history, signals };
 }
 function makeDataset(count=42, seed=1337){ const r=seedRand(seed); return Array.from({length:count},(_,i)=>makeTrader(i,r)); }
 
-const Pill = ({ children }:{children:React.ReactNode}) => (<span className="px-2 py-1 rounded-full bg-white/5 text-white/80 text-xs border border-white/10">{children}</span>);
 const StatCard = ({ label, value, sub }:{label:string; value:string; sub?:string}) => (
   <div className="rounded-2xl bg-white/5 border border-white/10 p-4 shadow-sm">
     <div className="text-xs text-white/60">{label}</div>
@@ -75,8 +79,6 @@ function TabButton({ label, active, onClick }:{label:string; active?:boolean; on
 }
 function Th({ children, right }:{children:React.ReactNode; right?:boolean}) { return <th className={clsx("px-3 py-2 font-normal text-left", right&&"text-right")}>{children}</th>; }
 function Td({ children, right, center, colSpan }:{children:React.ReactNode; right?:boolean; center?:boolean; colSpan?:number}) { return <td colSpan={colSpan} className={clsx("px-3 py-2", right&&"text-right", center&&"text-center")}>{children}</td>; }
-
-// Small inputs
 function SelectGroup<T extends string>({ label, value, onChange, options }:{ label:string; value:T; onChange:(v:T)=>void; options:T[] }) {
   return (
     <div className="flex flex-col">
@@ -101,17 +103,113 @@ export default function HyperliquidSocialSignalsSite() {
   const [sortKey, setSortKey] = useState<SortKey>("pnlPct");
   const [market, setMarket] = useState<Market>("ALL");
   const [search, setSearch] = useState("");
-  const [dataset] = useState<Trader[]>(() => makeDataset(42));
+const [dataset, setDataset] = useState<Trader[]>([]);
+const [loadingLb, setLoadingLb] = useState(true);
+const [lbError, setLbError] = useState<string | null>(null);
+
+useEffect(() => {
+  let cancelled = false;
+  (async () => {
+    try {
+      setLoadingLb(true);
+      setLbError(null);
+
+      const rows: any[] = await hl<any[]>({ type: "leaderboard" });
+
+      if (cancelled) return;
+
+      const mapped: Trader[] = rows.map((r: any, i: number) => ({
+        address: r.address ?? r.user ?? r.addr ?? `unknown_${i}`,
+        handle: r.handle ?? undefined,
+        marketFocus: "ALL",
+        stats: {
+          pnlPct: {
+            "24h": r.pnl24hPct ?? 0,
+            "7d":  r.pnl7dPct  ?? 0,
+            "30d": r.pnl30dPct ?? 0,
+          },
+          pnlUsd: {
+            "24h": r.pnl24hUsd ?? 0,
+            "7d":  r.pnl7dUsd  ?? 0,
+            "30d": r.pnl30dUsd ?? 0,
+          },
+          winRate: typeof r.winRate === "number" ? r.winRate : (r.winrate ?? 0.5),
+          sharpe: typeof r.sharpe === "number" ? r.sharpe : 1.0,
+          trades: r.trades ?? r.nTrades ?? 0,
+          volume24h: r.volume24hUsd ?? r.vol24hUsd ?? 0,
+          maxDdPct: r.maxDrawdownPct ?? 0,
+          avgTradeUsd: r.avgTradeUsd ?? 0,
+        },
+        spark: {
+          "24h": r.pnlCurve24h ?? [],
+          "7d":  r.pnlCurve7d  ?? [],
+          "30d": r.pnlCurve30d ?? [],
+        },
+        positions: [],
+        history: [],
+        signals: [],
+      }));
+
+      setDataset(mapped);
+    } catch (e: any) {
+      console.warn("Leaderboard error, using demo data:", e?.message || e);
+      setLbError("Live API unavailable — showing demo data.");
+      setDataset(makeDataset(200));
+    } finally {
+      if (!cancelled) setLoadingLb(false);
+    }
+  })();
+  return () => { cancelled = true; };
+}, []);
+
   const [selected, setSelected] = useState<Trader | null>(null);
-  const [follows, setFollows] = useState<Record<string, boolean>>({});
-  const [telegramBound, setTelegramBound] = useState(false);
-  const [minSize, setMinSize] = useState(5000);
-  const [symbols, setSymbols] = useState<string[]>(["ETH","BTC"]);
-  const [events, setEvents] = useState<string[]>(["OPEN","CLOSE","FLIP"]);
+
+  React.useEffect(() => {
+  if (!selected) return;
+  let cancelled = false;
+
+  (async () => {
+    try {
+      const state: any = await hl<any>({ type: "clearinghouseState", user: selected.address });
+      if (!cancelled) {
+        const positions: Position[] = (state?.assetPositions ?? []).map((p: any) => {
+          const szi = Number(p?.position?.szi ?? 0);
+          return {
+            symbol: p?.position?.coin ?? "?",
+            side: szi >= 0 ? "LONG" : "SHORT",
+            sizeUsd: Number(p?.position?.positionValue ?? 0),
+            entry: Number(p?.position?.entryPx ?? 0),
+            liq: p?.position?.liquidationPx ? Number(p?.position?.liquidationPx) : undefined,
+            unrealizedPnlUsd: Number(p?.position?.unrealizedPnl ?? 0),
+          };
+        });
+        setSelected(prev => prev ? { ...prev, positions } : prev);
+      }
+    } catch (e) { /* ignore */ }
+
+    try {
+      const fills: any[] = await hl<any[]>({ type: "userFills", user: selected.address, aggregateByTime: true });
+      if (!cancelled) {
+        const history: Trade[] = (fills || []).slice(0, 100).map((f: any) => ({
+          ts: Number(f.time ?? Date.now()),
+          symbol: String(f.coin ?? f.symbol ?? "?"),
+          side: (f.side === "B" || /Open Long|Buy/i.test(String(f.dir ?? ""))) ? "BUY" : "SELL",
+          sizeUsd: Number(f.notionalUsd ?? f.startPosition ?? 0),
+          price: Number(f.px ?? 0),
+          pnlUsd: f.closedPnl !== undefined ? Number(f.closedPnl) : undefined,
+        }));
+        setSelected(prev => prev ? { ...prev, history } : prev);
+      }
+    } catch (e) { /* ignore */ }
+  })();
+
+  return () => { cancelled = true; };
+}, [selected?.address]);
+
 
   // 🔗 Links (env-driven on client)
   const TELEGRAM_BOT_URL = process.env.NEXT_PUBLIC_TELEGRAM_BOT_URL || "https://t.me/YOUR_BOT_NAME?start=app";
-  const HYPERLIQUID_REF_URL = process.env.NEXT_PUBLIC_HYPERLIQUID_REF_URL || "https://app.hyperliquid.xyz/?ref=YOUR_REF_CODE";
+  const HYPERLIQUID_REF_URL = process.env.NEXT_PUBLIC_HYPERLIQUID_REF_URL || "https://app.hyperliquid.xyz/join/HYPERSIGNAL";
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -131,8 +229,6 @@ export default function HyperliquidSocialSignalsSite() {
       });
   }, [dataset, market, search, sortKey, timeframe]);
 
-  function toggleFollow(addr:string){ setFollows(prev=>({ ...prev, [addr]: !prev[addr] })); }
-
   const accent = "from-cyan-400 to-blue-500";
 
   return (
@@ -141,9 +237,7 @@ export default function HyperliquidSocialSignalsSite() {
       <header className="sticky top-0 z-30 backdrop-blur supports-[backdrop-filter]:bg-zinc-950/60 bg-zinc-950/80 border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className={clsx("w-8 h-8 rounded-2xl bg-gradient-to-br", accent, "shadow-lg shadow-blue-500/20")} />
-            <div className="font-semibold tracking-tight">Hyperliquid Social Signals</div>
-            <Pill>Free • Signals-only</Pill>
+            <HyperSignalWordmark size={28} text="Hyper Signal" />
           </div>
           <nav className="hidden sm:flex items-center gap-1">
             <TabButton label="Home" active={activeTab==="home"} onClick={()=>setActiveTab("home")} />
@@ -161,8 +255,12 @@ export default function HyperliquidSocialSignalsSite() {
           <section>
             <div className="grid md:grid-cols-2 gap-8 items-center">
               <div>
-                <h1 className="text-3xl md:text-4xl font-semibold tracking-tight">A premium, simple dashboard for Hyperliquid traders</h1>
-                <p className="text-white/70 mt-3 text-base">Discover top performers. Follow them. Get real-time signals on Telegram. No keys, no auto-execution.</p>
+                <h1 className="text-3xl md:text-4xl font-semibold tracking-tight">
+                  A premium, simple dashboard for Hyperliquid traders
+                </h1>
+                <p className="text-white/70 mt-3 text-base">
+                  Discover top performers. Follow them. Get real-time signals on Telegram. No keys, no auto-execution.
+                </p>
                 <div className="mt-5 flex flex-wrap gap-3">
                   <a href="#" onClick={(e)=>{e.preventDefault(); setActiveTab("leaderboard");}} className={clsx("px-4 py-2 rounded-xl bg-gradient-to-br", accent, "shadow-lg shadow-blue-500/20 text-sm")}>Open Leaderboard</a>
                   <a href={TELEGRAM_BOT_URL} target="_blank" rel="noreferrer" className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm hover:bg-white/10">Subscribe on Telegram</a>
@@ -263,10 +361,7 @@ export default function HyperliquidSocialSignalsSite() {
                       <Td right>
                         <div className="flex items-center justify-end gap-2">
                           <button onClick={()=>setSelected(t)} className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10">View</button>
-                          <button onClick={()=> (setActiveTab("alerts"))}
-                            className={"px-3 py-1.5 rounded-lg border bg-white/5 border-white/10 hover:bg-white/10"}>
-                            Follow
-                          </button>
+                          <button onClick={()=> setActiveTab("alerts")} className="px-3 py-1.5 rounded-lg border bg-white/5 border-white/10 hover:bg-white/10">Follow</button>
                         </div>
                       </Td>
                     </tr>
@@ -287,34 +382,8 @@ export default function HyperliquidSocialSignalsSite() {
             <div className="mt-5 rounded-2xl border border-white/10 p-4 bg-white/5">
               <div className="flex items-center justify-between">
                 <div><div className="text-sm font-medium">Telegram</div><div className="text-white/60 text-xs">Not connected</div></div>
-                <a href={TELEGRAM_BOT_URL} target="_blank" rel="noreferrer"
-                   className={"px-4 py-2 rounded-xl text-sm border transition bg-white/5 border-white/10 hover:bg-white/10"}>
-                  Connect
-                </a>
+                <a href={TELEGRAM_BOT_URL} target="_blank" rel="noreferrer" className="px-4 py-2 rounded-xl text-sm border transition bg-white/5 border-white/10 hover:bg-white/10">Connect</a>
               </div>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-4 mt-4">
-              <div className="rounded-2xl border border-white/10 p-4 bg-white/5">
-                <div className="text-sm font-medium">Minimum position size</div>
-                <div className="mt-2 flex items-center gap-2">
-                  <input type="range" min={0} max={100000} step={1000} className="w-full" />
-                  <div className="text-sm w-24 text-right">{fmtUsd(5000)}</div>
-                </div>
-              </div>
-              <div className="rounded-2xl border border-white/10 p-4 bg-white/5">
-                <div className="text-sm font-medium">Symbols</div>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {["ETH","BTC","SOL","DOGE","ARB","OP"].map(s=>(
-                    <span key={s} className="px-3 py-1.5 rounded-full text-xs border bg-white/10 border-white/20">{s}</span>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-5 flex items-center gap-2">
-              <a href="#" className={clsx("px-4 py-2 rounded-xl bg-gradient-to-br", "from-cyan-400 to-blue-500", "text-sm shadow-lg shadow-blue-500/20")}>Save Preferences</a>
-              <span className="text-xs text-white/50">Preferences are stored locally in this demo.</span>
             </div>
           </section>
         )}
@@ -380,7 +449,7 @@ export default function HyperliquidSocialSignalsSite() {
       {/* Footer */}
       <footer className="mt-10 pb-10">
         <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-3 text-white/50 text-xs">
-          <div>© {new Date().getFullYear()} Hyperliquid Social Signals — Demo UI. Premium feel, simple UX.</div>
+          <div>© {new Date().getFullYear()} Hyper Signal — Demo UI. Premium feel, simple UX.</div>
           <div className="flex items-center gap-3"><span>Privacy-first</span><span>•</span><span>Signals only</span><span>•</span><span>Not financial advice</span></div>
         </div>
       </footer>
