@@ -17,18 +17,18 @@ export const metadata: Metadata = {
   description: "Premium signals and leaderboards powered by Hyperliquid",
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        {children}
+      <body>
+        <header className="flex items-center gap-3 p-4">
+          {/* Old logo/text block here */}
+          <div className="w-8 h-8 bg-blue-500 rounded-xl" />
+          <div className="font-semibold">Hyperliquid Signals</div>
+        </header>
+        <main>{children}</main>
       </body>
     </html>
   );
 }
+
